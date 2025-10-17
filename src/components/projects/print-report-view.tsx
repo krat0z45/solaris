@@ -2,12 +2,15 @@
 "use client";
 
 import { useCollection, useFirestore } from "@/firebase";
-import { CheckSquare, Square, Loader2 } from 'lucide-react';
+import { CheckSquare, Square, Loader2, Download } from 'lucide-react';
 import { formatDate } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { collection, query, where } from "firebase/firestore";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef } from "react";
 import type { Client, Project, User, WeeklyReport, Milestone } from "@/lib/types";
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+import { Button } from "../ui/button";
 
 export default function PrintReportView({ 
     project, 
@@ -21,6 +24,41 @@ export default function PrintReportView({
     report: WeeklyReport 
 }) {
   const firestore = useFirestore();
+  const printRef = useRef<HTMLDivElement>(null);
+  const [isDownloading, setIsDownloading] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    const element = printRef.current;
+    if (!element) return;
+    setIsDownloading(true);
+
+    const downloadButton = element.querySelector<HTMLElement>('#download-button');
+    if(downloadButton) downloadButton.style.display = 'none';
+
+    const canvas = await html2canvas(element, { scale: 2 });
+    
+    if(downloadButton) downloadButton.style.display = 'flex';
+
+    const data = canvas.toDataURL('image/png');
+
+    const pdf = new jsPDF({
+        orientation: 'p',
+        unit: 'mm',
+        format: 'a4'
+    });
+    
+    const pdfWidth = pdf.internal.pageSize.getWidth();
+    const pdfHeight = pdf.internal.pageSize.getHeight();
+    const imgWidth = canvas.width;
+    const imgHeight = canvas.height;
+    const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
+    const imgX = (pdfWidth - imgWidth * ratio) / 2;
+    const imgY = 0;
+
+    pdf.addImage(data, 'PNG', imgX, imgY, imgWidth * ratio, imgHeight * ratio);
+    pdf.save(`reporte-semana-${report.week}-${project.name}.pdf`);
+    setIsDownloading(false);
+  };
   
   const milestonesQuery = useMemo(() => 
     query(collection(firestore, "milestones"), where("projectTypes", "array-contains", project.projectType)), 
@@ -37,73 +75,87 @@ export default function PrintReportView({
   }
 
   return (
-    <div className="max-w-4xl mx-auto p-8 font-sans bg-white text-black">
-      <header className="flex justify-between items-start pb-4 border-b-2 border-gray-800">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">Acciona Manager</h1>
-          <p className="text-gray-600">Weekly Progress Report</p>
-        </div>
-        <div className="text-right">
-          <h2 className="text-2xl font-semibold">{project.name}</h2>
-          <p className="text-gray-600">Report #{report.week}</p>
-        </div>
-      </header>
+    <div className="bg-gray-100 p-4 sm:p-8">
+        <div className="max-w-4xl mx-auto">
+            <div className="flex justify-end mb-4">
+                <Button onClick={handleDownloadPdf} disabled={isDownloading} id="download-button">
+                    {isDownloading ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                        <Download className="mr-2 h-4 w-4" />
+                    )}
+                    Descargar PDF
+                </Button>
+            </div>
+            <div ref={printRef} className="p-8 font-sans bg-white text-black rounded-lg shadow-lg">
+                <header className="flex justify-between items-start pb-4 border-b-2 border-gray-800">
+                    <div>
+                    <h1 className="text-3xl font-bold text-gray-900">Acciona Manager</h1>
+                    <p className="text-gray-600">Weekly Progress Report</p>
+                    </div>
+                    <div className="text-right">
+                    <h2 className="text-2xl font-semibold">{project.name}</h2>
+                    <p className="text-gray-600">Report #{report.week}</p>
+                    </div>
+                </header>
 
-      <section className="grid grid-cols-3 gap-8 my-8">
-        <div>
-          <h3 className="font-semibold text-gray-500 uppercase tracking-wider text-sm">Client</h3>
-          <p className="text-lg">{client?.name || 'N/A'}</p>
-        </div>
-        <div>
-          <h3 className="font-semibold text-gray-500 uppercase tracking-wider text-sm">Start Date</h3>
-          <p className="text-lg">{formatDate(project.startDate)}</p>
-        </div>
-         <div>
-          <h3 className="font-semibold text-gray-500 uppercase tracking-wider text-sm">Total Progress</h3>
-          <p className="text-lg font-bold">{report.progress}%</p>
-        </div>
-      </section>
+                <section className="grid grid-cols-3 gap-8 my-8">
+                    <div>
+                    <h3 className="font-semibold text-gray-500 uppercase tracking-wider text-sm">Client</h3>
+                    <p className="text-lg">{client?.name || 'N/A'}</p>
+                    </div>
+                    <div>
+                    <h3 className="font-semibold text-gray-500 uppercase tracking-wider text-sm">Start Date</h3>
+                    <p className="text-lg">{formatDate(project.startDate)}</p>
+                    </div>
+                    <div>
+                    <h3 className="font-semibold text-gray-500 uppercase tracking-wider text-sm">Total Progress</h3>
+                    <p className="text-lg font-bold">{report.progress}%</p>
+                    </div>
+                </section>
 
-      <main className="space-y-8">
-        <div>
-          <h3 className="text-xl font-semibold border-b border-gray-300 pb-2 mb-4 flex justify-between items-center">
-            Weekly Summary
-            <Badge className={
-                report.status === 'On Track' ? 'bg-green-100 text-green-800' :
-                report.status === 'At Risk' ? 'bg-yellow-100 text-yellow-800' :
-                'bg-red-100 text-red-800'
-            }>{report.status}</Badge>
-          </h3>
-          <p className="text-gray-700 whitespace-pre-wrap">{report.summary}</p>
-        </div>
+                <main className="space-y-8">
+                    <div>
+                    <h3 className="text-xl font-semibold border-b border-gray-300 pb-2 mb-4 flex justify-between items-center">
+                        Weekly Summary
+                        <Badge className={
+                            report.status === 'On Track' ? 'bg-green-100 text-green-800' :
+                            report.status === 'At Risk' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-red-100 text-red-800'
+                        }>{report.status}</Badge>
+                    </h3>
+                    <p className="text-gray-700 whitespace-pre-wrap">{report.summary}</p>
+                    </div>
 
-        <div>
-            <h3 className="text-xl font-semibold border-b border-gray-300 pb-2 mb-4">Milestones Status for this Report</h3>
-            <div className="space-y-4">
-                {projectMilestones?.map(milestone => (
-                    <div key={milestone.id}>
-                        <h4 className="font-medium">{milestone.name}</h4>
-                        <div className="space-y-2 pl-4 mt-1">
-                            {milestone.subMilestones.map(subMilestone => (
-                                <div key={subMilestone.id} className="flex items-center gap-3">
-                                    {report.completedSubMilestones?.includes(subMilestone.id) ? 
-                                        <CheckSquare className="h-5 w-5 text-green-600" /> :
-                                        <Square className="h-5 w-5 text-gray-300" />
-                                    }
-                                    <span className="text-sm">{subMilestone.name}</span>
+                    <div>
+                        <h3 className="text-xl font-semibold border-b border-gray-300 pb-2 mb-4">Milestones Status for this Report</h3>
+                        <div className="space-y-4">
+                            {projectMilestones?.map(milestone => (
+                                <div key={milestone.id}>
+                                    <h4 className="font-medium">{milestone.name}</h4>
+                                    <div className="space-y-2 pl-4 mt-1">
+                                        {milestone.subMilestones.map(subMilestone => (
+                                            <div key={subMilestone.id} className="flex items-center gap-3">
+                                                {report.completedSubMilestones?.includes(subMilestone.id) ? 
+                                                    <CheckSquare className="h-5 w-5 text-green-600" /> :
+                                                    <Square className="h-5 w-5 text-gray-300" />
+                                                }
+                                                <span className="text-sm">{subMilestone.name}</span>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             ))}
                         </div>
                     </div>
-                ))}
+                </main>
+
+                <footer className="mt-12 pt-4 border-t text-center text-xs text-gray-500">
+                    <p>Report generated on {new Date().toLocaleDateString()}</p>
+                    <p>Acciona Manager - Project Management Simplified</p>
+                </footer>
             </div>
         </div>
-      </main>
-
-      <footer className="mt-12 pt-4 border-t text-center text-xs text-gray-500">
-        <p>Report generated on {new Date().toLocaleDateString()}</p>
-        <p>Solaris Manager - Project Management Simplified</p>
-      </footer>
     </div>
   );
 }
