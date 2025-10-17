@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useMemo, useRef, useState } from "react";
@@ -186,7 +187,9 @@ export default function PrintGeneralReportView({ project, client, manager, repor
                               return (
                                   <li key={sm.id} className="flex items-center gap-2 text-xs text-gray-600">
                                       {isCompleted ? <CheckSquare className="h-3 w-3 text-green-500" /> : <Square className="h-3 w-3 text-gray-400" />}
-                                      <span className={isCompleted ? 'line-through' : ''}>{sm.name}</span>
+                                      <div className="flex-1">
+                                        <span>{sm.name}</span>
+                                      </div>
                                   </li>
                               )
                           })}
@@ -198,7 +201,7 @@ export default function PrintGeneralReportView({ project, client, manager, repor
               </div>
               <div>
                 <h3 className="text-xl font-semibold border-b border-gray-300 pb-2 mb-4">Weekly Summaries Log</h3>
-                <div className="space-y-4 max-h-[400px] overflow-y-auto">
+                <div className="space-y-4">
                   {reports.slice().reverse().map(report => (
                     <div key={report.id} className="border-l-2 pl-4">
                       <p className="font-semibold text-sm">Week {report.week}</p>
