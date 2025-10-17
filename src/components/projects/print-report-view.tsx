@@ -40,7 +40,7 @@ export default function PrintReportView({
     <div className="max-w-4xl mx-auto p-8 font-sans bg-white text-black">
       <header className="flex justify-between items-start pb-4 border-b-2 border-gray-800">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Solaris Manager</h1>
+          <h1 className="text-3xl font-bold text-gray-900">Acciona Manager</h1>
           <p className="text-gray-600">Weekly Progress Report</p>
         </div>
         <div className="text-right">
